@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNAF: Проста версія</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        #game {
+            width: 90%;
+            max-width: 400px;
+            height: 60vh;
+            background-color: #222;
+            margin: 20px auto;
+            border: 2px solid #fff;
+            position: relative;
+            overflow: hidden;
+            display: none;
+        }
+        .animatronic {
+            font-size: 5vw; /* Adjusted size for Freddy */
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: top 1s;
+        }
+        .door {
+            width: 60px;
+            height: 10px;
+            background-color: grey;
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        button {
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 20px;
+            width: 80%; /* Make buttons wider for easier tapping */
+        }
+        .message {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+        #energyDisplay {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+        #gameOverScreen, #winScreen {
+            display: none;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+        #gameOverScreen button, #winScreen button {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>FNAF: Проста версія</h1>
+<div id="game">
+    <div class="animatronic" id="animatronic">🐻</div>
+    <div class="door" id="door"></div>
+    <div id="energyDisplay">Енергія: 100</div>
+</div>
+
+<button onclick="startGame()">Почати гру</button>
+<button onclick="toggleLight()" id="lightButton" style="display:none;">Включити світло</button>
+<button onclick="toggleDoor()" id="doorButton" style="display:none;">Закрити двері</button>
+<button onclick="useGenerator()" id="generatorButton" style="display:none;">Використати генератор</button>
+
+<div id="gameOverScreen">
+    <div class="message" id="message"></div>
+    <button onclick="startGame()">Почати знову</button>
+</div>
+
+<div id="winScreen">
+    <div class="message">Вітаємо! Ви виграли!</div>
+    <button onclick="startGame()">Почати знову</button>
+</div>
+
+<script>
+    let gameInterval;
+    let countdownInterval;
+    let doorDamageInterval;
+    let lightEnergyInterval;
+    let isGameOver = false;
+    let lightOn = false;
+    let doorClosed = false;
+    let stage = 0;
+    let energy = 100; // Початкова енергія
+    let generatorCooldown = false; // Статус кулдауну генератора
+    let timeLeft = 60; // Час гри в секундах
+
+    function startGame() {
+        isGameOver = false;
+        stage = 0;
+        energy = 100; // Скидання енергії
+        timeLeft = 60; // Скидання часу
+        document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('winScreen').style.display = 'none';
+        document.getElementById('message').innerText = '';
+        document.getElementById('lightButton').style.display = 'inline-block';
+        document.getElementById('doorButton').style.display = 'inline-block';
+        document.getElementById('generatorButton').style.display = 'inline-block';
+        document.getElementById('energyDisplay').innerText = 'Енергія: ' + energy; // Відображення енергії
+        const animatronic = document.getElementById('animatronic');
+        animatronic.style.top = '0'; // Початкова позиція зверху
+        document.getElementById('game').style.display = 'block'; // Показати гру
+
+        gameInterval = setInterval(() => {
+            if (isGameOver) return;
+
+            // 50% шанс перемістити аніматроніка на один етап
+            if (Math.random() < 0.5) {
+                stage++;
+                if (stage > 4) {
+                    // Якщо досягнуто 4 стадію, перевіряємо двері
+                    if (doorClosed) {
+                        // Якщо двері закриті, повертаємо аніматроніка назад
+                        stage = 0;
+                        animatronic.style.top = '0';
+                    } else {
+                        // Якщо двері відкриті, чекаємо 5 секунд і завершуємо гру
+                        setTimeout(() => {
+                            if (!isGameOver) {
+                                endGame('Гра закінчена! Аніматронік дійшов до дверей!');
+                            }
+                        }, 5000); // Затримка перед програшем
+                    }
+                } else {
+                    animatronic.style.top = (stage * 100) + 'px'; // Зміщення на 100 пікселів за стадію
+                }
+            }
+        }, 5000); // Переміщення кожні 5 секунд
+
+        countdownInterval = setInterval(() => {
+            if (isGameOver) return;
+
+            timeLeft--;
+            if (timeLeft <= 0) {
+                endWin(); // Завершити гру, якщо час вичерпано
+            }
+        }, 1000); // Зменшувати таймер щосекунди
+
+        doorDamageInterval = setInterval(() => {
+            if (doorClosed && energy > 0) {
+                energy -= 5; // Витрата 5% енергії
+                if (energy < 0) energy = 0; // Забезпечення ненегативного значення енергії
+                document.getElementById('energyDisplay').innerText = 'Енергія: ' + energy; // Оновлення відображення енергії
+                if (energy <= 0) {
+                    endGame('Гра закінчена! Енергія закінчилася!');
+                }
+            }
+        }, 3000); // Витрата енергії кожні 3 секунди
+
+        if (lightOn) {
+            lightEnergyInterval = setInterval(() => {
+                if (lightOn && energy > 0) {
+                    energy -= 4; // Витрата 4% енергії
+                    if (energy < 0) energy = 0; // Забезпечення ненегативного значення енергії
+                    document.getElementById('energyDisplay').innerText = 'Енергія: ' + energy; // Оновлення відображення енергії
+                    if (energy <= 0) {
+                        endGame('Гра закінчена! Енергія закінчилася!');
+                    }
+                }
+            }, 1000); // Витрата енергії кожну секунду
+        }
+    }
+
+    function endGame(message) {
+        isGameOver = true;
+        clearInterval(gameInterval);
+        clearInterval(countdownInterval);
+        clearInterval(doorDamageInterval);
+        clearInterval(lightEnergyInterval);
+        document.getElementById('message').innerText = message;
+        document.getElementById('gameOverScreen').style.display = 'block';
+    }
+
+    function endWin() {
+        isGameOver = true;
+        clearInterval(gameInterval);
+        clearInterval(countdownInterval);
+        clearInterval(doorDamageInterval);
+        clearInterval(lightEnergyInterval);
+        document.getElementById('winScreen').style.display = 'block';
+    }
+
+    function toggleLight() {
+        lightOn = !lightOn;
+        const lightButton = document.getElementById('lightButton');
+        if (lightOn) {
+            lightButton.innerText = 'Вимкнути світло';
+            document.querySelector('.animatronic').style.opacity = '1'; // Показати аніматроніка
+            lightEnergyInterval = setInterval(() => {
+                if (lightOn && energy > 0) {
+                    energy -= 4; // Витрата 4% енергії
+                    if (energy < 0) energy = 0; // Забезпечення ненегативного значення енергії
+                    document.getElementById('energyDisplay').innerText = 'Енергія: ' + energy; // Оновлення відображення енергії
+                    if (energy <= 0) {
+                        endGame('Гра закінчена! Енергія закінчилася!');
+                    }
+                }
+            }, 1000); // Витрата енергії кожну секунду
+        } else {
+            lightButton.innerText = 'Включити світло';
+            document.querySelector('.animatronic').style.opacity = '0'; // Сховати аніматроніка
+            clearInterval(lightEnergyInterval);
+        }
+    }
+
+    function toggleDoor() {
+        doorClosed = !doorClosed;
+        const doorButton = document.getElementById('doorButton');
+        if (doorClosed) {
+            doorButton.innerText = 'Відкрити двері';
+        } else {
+            doorButton.innerText = 'Закрити двері';
+        }
+    }
+
+    function useGenerator() {
+        if (!generatorCooldown && energy <= 90) {
+            generatorCooldown = true;
+            energy += 20; // Відновлення 20% енергії
+            if (energy > 100) energy = 100; // Забезпечення максимального значення енергії
+            document.getElementById('energyDisplay').innerText = 'Енергія: ' + energy; // Оновлення відображення енергії
+            setTimeout(() => {
+                generatorCooldown = false; // Відновлення кулдауну генератора
+            }, 10000); // Кулдаун 10 секунд
+        }
+    }
+</script>
+
+</body>
+</html>
+
+
+
+
